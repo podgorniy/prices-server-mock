@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Prices server mock</title>
+</head>
+<body>
+<xmp theme="united" style="display:none;">
+## Current page includes ioClient library, so you may try examples right on the page
+
+See client docs at <a href="http://socket.io/docs/client-api/">http://socket.io/docs/client-api/</a>
+
+Websocket server socket io (1.3.x) implementation is used.
+
+Purpose of code below is to demonstrate API with minimum code. **You should not consider examples below as guide to implementation of your test task**
+
+## Protocol
+
+### Client
+
+**Even name**
+	subscribe-req
+**Data format**
+	pair: String
+	uid: String|Number
+
+Start sending `price-change` event to websocket connection each time price of `pair` changes.
+If client already subscribed to `pair` server will send `server-error` message with same `uid`.
+
+```
+var connection = ioClient('prices-server-mock.dmitrypodgorniy.com')
+connection.on('connect', function () {
+	connection.emit('subscribe-req', {
+		pair: 'eurusd',
+		uid: Math.random()
+	})
+	connection.on('price-change', function (data) {
+		console.log('price-change', data)
+	})
+})
+```
+
+
+**Event name**
+	unsubscribe-req
+**Data format**
+	pair: String
+	uid: String|Number
+
+Unsubscribe client from price updates of `pair` currency.
+```
+var connection = ioClient('prices-server-mock.dmitrypodgorniy.com')
+connection.on('connect', function () {
+	connection.emit('subscribe-req', {
+		pair: 'eurusd',
+		uid: Math.random()
+	})
+	connection.on('price-change', function (data) {
+		console.log('price-change', data)
+		connection.emit('unsubscribe-req', {
+			pair: 'eurusd',
+			uid: Math.random()
+		})
+	})
+})
+```
+
+### Server
+
+**Even name**
+	subscribe-res
+**Data format**
+	uid: String|Number
+
+Message is sent after successful client subscription to prices with `subscribe-req` message. `uid` will be the same which was specified in `subscribe-req`.
+
+```
+var connection = ioClient('prices-server-mock.dmitrypodgorniy.com')
+connection.on('connect', function () {
+	connection.emit('subscribe-req', {
+		pair: 'eurusd',
+		uid: Math.random()
+	})
+})
+connection.on('subscribe-res', function (eventData) {
+	console.log('Subscribed:', eventData)
+})
+```
+
+**Even name**
+	unsubscribe-res
+**Data format**
+	uid: String|Number
+
+Message is sent after client unsubscribtopn from with `unsubscribe-req` message. `uid` will be the same which was specified in `unsubscribe-req`.
+
+```
+var connection = ioClient('prices-server-mock.dmitrypodgorniy.com')
+connection.on('connect', function () {
+	connection.on('price-change', function (data) {
+		console.log('Price:', data)
+		connection.emit('unsubscribe-req', {
+			pair: 'eurusd',
+			uid: Math.random()
+		})
+	})
+	connection.on('unsubscribe-res', function (data) {
+		console.log('Unsubscribed:', data)
+	})
+	connection.emit('subscribe-req', {
+		pair: 'eurusd',
+		uid: Math.random()
+	})
+})
+```
+
+
+**Event name**
+	price-change
+**Data format**
+	pair: String
+	price: Number
+
+Server sends `price-change` for each time, price of a `pair` changed. Server start sending these messages only after client subscribed to pairs with `subscribe-req`.
+
+```
+var connection = ioClient('prices-server-mock.dmitrypodgorniy.com')
+connection.on('connect', function () {
+	connection.emit('subscribe-req', {
+		pair: 'eurusd',
+		uid: Math.random()
+	})
+})
+connection.on('price-change', function (eventData) {
+	console.log('Price changed', eventData.pair, eventData.price)
+})
+```
+
+
+**Event name**
+	server-error
+**Data format**
+	uid: String|Number
+
+Returned in a response to malformed request. Contains `uid` of request, which caused error.
+```
+var connection = ioClient('prices-server-mock.dmitrypodgorniy.com')
+connection.on('connect', function () {
+	connection.emit('subscribe-req', {
+		pair: 'eurus', // incorrect pair name
+		uid: Math.random()
+	})
+})
+connection.on('server-error', function (eventData) {
+	console.error('Server error', eventData)
+})
+```
+
+Or `server-error` emitted in response to unexpected request. For example when client tries to unsubscribe from pair, which it did not subscribe.
+```
+var connection = ioClient('prices-server-mock.dmitrypodgorniy.com')
+connection.on('connect', function () {
+	// Trying to unsubscribe from non subscribed pair
+	connection.emit('unsubscribe-req', {
+		pair: 'eurusd',
+		uid: Math.random()
+	})
+})
+connection.on('server-error', function (eventData) {
+	console.error('Server error', eventData)
+})
+```
+    </xmp>
+    <script src="bundle.js"></script>
+    <script src="http://strapdownjs.com/v/0.2/strapdown.js"></script>
+</body>
+</html>
